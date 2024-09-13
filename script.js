@@ -46,8 +46,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     extendedProps: {
                         subject: materia
                     }
-                })
-            })
-        }
-    })
-})
+                });
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+});
