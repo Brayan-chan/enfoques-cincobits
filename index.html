@@ -1,149 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario de Horarios</title>
-    
-    <!-- CSS de Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Calendario de Horarios</title>
         
-    <!-- Scripts de FullCalendar -->
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.7/index.global.min.js"></script>
+        <!-- CSS de Bootstrap -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        
+        <!-- CSS de FullCalendar -->
+        
+        <!-- Scripts de FullCalendar -->
+        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.7/index.global.min.js"></script>
+        
+        <!-- Script de XLSX para la lectura de archivos Excel -->
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    </head>
+    <body class="bg-gray-100">
+        <div class="container py-5">
+            <h1 class="text-center mb-5">Horario de la Facultad</h1>
     
-    <!-- Script de XLSX para la lectura de archivos Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head>
-<body class="bg-gray-100">
-    <div class="container py-5">
-        <h1 class="text-center mb-5">Horario de la Facultad</h1>
-
-        <!-- Botón de importar archivo -->
-        <div class="text-center mb-3">
-            <input type="file" id="excelFile" class="form-control-file">
-            <button id="importBtn" class="btn btn-primary mt-3">Importar Archivo Excel</button>
-        </div>
-
-        <!-- Contenedor para el calendario -->
-        <div id="calendar"></div>
-
-        <!-- Modal para editar profesor -->
-        <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editModalLabel">Editar Profesor</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="editForm">
-                            <div class="mb-3">
-                                <label for="professorName" class="form-label">Nombre del Profesor</label>
-                                <input type="text" id="professorName" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label for="subjectName" class="form-label">Materia</label>
-                                <input type="text" id="subjectName" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label for="classTime" class="form-label">Horario</label>
-                                <input type="text" id="classTime" class="form-control">
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                        <button type="button" class="btn btn-primary" id="saveChanges">Guardar Cambios</button>
+            <!-- Botón de importar archivo -->
+            <div class="text-center mb-3">
+                <input type="file" id="excelFile" class="form-control-file">
+                <button id="importBtn" class="btn btn-primary mt-3">Importar Archivo Excel</button>
+            </div>
+    
+            <!-- Contenedor para el calendario -->
+            <div id="calendar"></div>
+    
+            <!-- Modal para editar profesor -->
+            <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editModalLabel">Editar Profesor</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editForm">
+                                <div class="mb-3">
+                                    <label for="professorName" class="form-label">Nombre del Profesor</label>
+                                    <input type="text" id="professorName" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="subjectName" class="form-label">Materia</label>
+                                    <input type="text" id="subjectName" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="classTime" class="form-label">Horario</label>
+                                    <input type="text" id="classTime" class="form-control" placeholder="HH:MM-HH:MM">
+                                </div>
+                                <!-- Campo oculto para almacenar el ID del evento -->
+                                <input type="hidden" id="eventId">
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="button" class="btn btn-primary" id="saveChanges">Guardar Cambios</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <script>
-        // Mapeo de los días de la semana a índices de FullCalendar
-        const dayMap = {
-            'Lunes': 1,
-            'Martes': 2,
-            'Miércoles': 3,
-            'Jueves': 4,
-            'Viernes': 5
-        };
-
-        // Configuración del calendario
-        document.addEventListener('DOMContentLoaded', function () {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'timeGridWeek',
-                editable: true,
-                events: [], // Los eventos serán añadidos aquí tras importar el Excel
-                eventClick: function (info) {
-                    // Abrir el modal para editar la información del profesor
-                    var eventObj = info.event;
-                    document.getElementById('professorName').value = eventObj.title;
-                    document.getElementById('subjectName').value = eventObj.extendedProps.subject;
-                    document.getElementById('classTime').value = eventObj.start.toLocaleTimeString();
-                    var modal = new bootstrap.Modal(document.getElementById('editModal'));
-                    modal.show();
-                }
-            });
-            calendar.render();
-
-            // Función para importar el archivo Excel
-            document.getElementById('importBtn').addEventListener('click', function () {
-                var fileInput = document.getElementById('excelFile');
-                if (fileInput.files.length === 0) {
-                    alert('Por favor, seleccione un archivo Excel.');
-                    return;
-                }
-                var file = fileInput.files[0];
-                var reader = new FileReader();
-                reader.onload = function (e) {
-                    var data = new Uint8Array(e.target.result);
-                    var workbook = XLSX.read(data, { type: 'array' });
-                    var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
-                    // Parsear los datos del Excel y añadirlos al calendario
-                    rows.forEach(function (row, index) {
-                        if (index === 0) return; // Saltar encabezado
-                        var profesor = row[0];
-                        var materia = row[1];
-                        var dia = row[2];
-                        var horario = row[3];
-
-                        var horarioSplit = horario.split('-');
-                        var horaInicio = horarioSplit[0];
-                        var horaFin = horarioSplit[1];
-
-                        var diaSemana = dayMap[dia]; // Convertir el día en el índice adecuado
-
-                        // Crear el objeto de fecha para el evento
-                        var fechaInicio = new Date();
-                        var fechaFin = new Date();
-
-                        // Ajustar el día de la semana y las horas
-                        fechaInicio.setHours(parseInt(horaInicio.split(':')[0]), parseInt(horaInicio.split(':')[1]));
-                        fechaInicio.setDate(fechaInicio.getDate() + (diaSemana - fechaInicio.getDay()));
-
-                        fechaFin.setHours(parseInt(horaFin.split(':')[0]), parseInt(horaFin.split(':')[1]));
-                        fechaFin.setDate(fechaInicio.getDate());
-
-                        calendar.addEvent({
-                            title: profesor,
-                            start: fechaInicio,
-                            end: fechaFin,
-                            extendedProps: {
-                                subject: materia
-                            }
+    
+        <script>
+            // Configuración del calendario
+            document.addEventListener('DOMContentLoaded', function () {
+                var calendarEl = document.getElementById('calendar');
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'timeGridWeek',
+                    locale: 'es',  // Calendario en español
+                    firstDay: 1,   // Lunes como primer día
+                    hiddenDays: [0, 6], // Ocultar domingo y sábado
+                    editable: true,
+                    events: [], // Los eventos serán añadidos aquí tras importar el Excel
+                    eventClick: function (info) {
+                        // Abrir el modal para editar la información del profesor
+                        var eventObj = info.event;
+    
+                        // Asignar los valores actuales al formulario
+                        document.getElementById('professorName').value = eventObj.title;
+                        document.getElementById('subjectName').value = eventObj.extendedProps.subject;
+                        document.getElementById('classTime').value = eventObj.start.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) + '-' + eventObj.end.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    
+                        // Asignar el ID del evento al campo oculto
+                        document.getElementById('eventId').value = eventObj.id;
+    
+                        // Mostrar el modal
+                        var modal = new bootstrap.Modal(document.getElementById('editModal'));
+                        modal.show();
+                    }
+                });
+                calendar.render();
+    
+                // Función para importar el archivo Excel
+                document.getElementById('importBtn').addEventListener('click', function () {
+                    var fileInput = document.getElementById('excelFile');
+                    if (fileInput.files.length === 0) {
+                        alert('Por favor, seleccione un archivo Excel.');
+                        return;
+                    }
+                    var file = fileInput.files[0];
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        var data = new Uint8Array(e.target.result);
+                        var workbook = XLSX.read(data, { type: 'array' });
+                        var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+    
+                        // Parsear los datos del Excel y añadirlos al calendario
+                        rows.forEach(function (row, index) {
+                            if (index === 0) return; // Saltar encabezado
+                            var profesor = row[0];
+                            var materia = row[1];
+                            var diaSemana = row[2]; // Días de la semana
+                            var horario = row[3].split('-'); // Formato HH:MM-HH:MM
+                            var horaInicio = horario[0].trim();
+                            var horaFin = horario[1].trim();
+    
+                            var diasMap = {
+                                "lunes": 1,
+                                "martes": 2,
+                                "miércoles": 3,
+                                "jueves": 4,
+                                "viernes": 5
+                            };
+    
+                            var startDate = new Date();
+                            startDate.setDate(startDate.getDate() + (diasMap[diaSemana.toLowerCase()] - startDate.getDay()));
+    
+                            var startTime = horaInicio.split(":");
+                            startDate.setHours(startTime[0], startTime[1]);
+    
+                            var endDate = new Date(startDate);
+                            var endTime = horaFin.split(":");
+                            endDate.setHours(endTime[0], endTime[1]);
+    
+                            calendar.addEvent({
+                                id: 'event-' + index, // Asignar un ID único a cada evento
+                                title: profesor,
+                                start: startDate,
+                                end: endDate,
+                                extendedProps: {
+                                    subject: materia
+                                }
+                            });
                         });
-                    });
-                };
-                reader.readAsArrayBuffer(file);
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+    
+                // Guardar cambios y cerrar modal
+                document.getElementById('saveChanges').addEventListener('click', function () {
+                    var eventId = document.getElementById('eventId').value; // Obtener el ID del evento
+    
+                    if (eventId) {
+                        var selectedEvent = calendar.getEventById(eventId); // Obtener el evento por su ID
+                        if (selectedEvent) {
+                            selectedEvent.setProp('title', document.getElementById('professorName').value);
+                            selectedEvent.setExtendedProp('subject', document.getElementById('subjectName').value);
+                            
+                            var timeRange = document.getElementById('classTime').value.split('-');
+                            var newStartTime = timeRange[0].trim().split(':');
+                            var newEndTime = timeRange[1].trim().split(':');
+    
+                            var newStart = new Date(selectedEvent.start);
+                            newStart.setHours(newStartTime[0], newStartTime[1]);
+    
+                            var newEnd = new Date(selectedEvent.end);
+                            newEnd.setHours(newEndTime[0], newEndTime[1]);
+    
+                            selectedEvent.setStart(newStart);
+                            selectedEvent.setEnd(newEnd);
+    
+                            alert('Cambios guardados con éxito');
+                        } else {
+                            alert('Error: No se pudo encontrar el evento');
+                        }
+                    } else {
+                        alert('Error: No se pudo guardar el evento');
+                    }
+    
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                    modal.hide();
+                });
             });
-        });
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+        </script>
+    
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+    </html>
+    
